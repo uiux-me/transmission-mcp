@@ -1,0 +1,62 @@
+services:
+  mcp:
+    build: .
+    image: transmission-mcp:latest
+    container_name: transmission-mcp
+    restart: unless-stopped
+    ports:
+      - "${MCP_PORT:-8000}:8000"
+    environment:
+      TRANSMISSION_URL: ${TRANSMISSION_URL:-http://transmission:9091}
+      TRANSMISSION_USERNAME: ${TRANSMISSION_USERNAME:-}
+      TRANSMISSION_PASSWORD: ${TRANSMISSION_PASSWORD:-}
+      TRANSMISSION_TIMEOUT: ${TRANSMISSION_TIMEOUT:-30}
+      TRANSMISSION_VERIFY_SSL: ${TRANSMISSION_VERIFY_SSL:-true}
+      TRANSMISSION_DOWNLOAD_DIR: ${TRANSMISSION_DOWNLOAD_DIR:-/downloads/complete}
+      TRANSMISSION_READ_ONLY: ${TRANSMISSION_READ_ONLY:-false}
+      TRANSMISSION_ALLOW_REMOVE_DATA: ${TRANSMISSION_ALLOW_REMOVE_DATA:-false}
+      TRANSMISSION_ALLOW_SHUTDOWN: ${TRANSMISSION_ALLOW_SHUTDOWN:-false}
+      SEARCH_ENABLED: ${SEARCH_ENABLED:-true}
+      SEARCH_SOURCES: ${SEARCH_SOURCES:-}
+      SEARCH_EXCLUDE_SOURCES: ${SEARCH_EXCLUDE_SOURCES:-}
+      SEARCH_TIMEOUT: ${SEARCH_TIMEOUT:-20}
+      SEARCH_CACHE_TTL: ${SEARCH_CACHE_TTL:-900}
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-http}
+      MCP_PORT: 8000
+      MCP_PATH: ${MCP_PATH:-/mcp}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      - transmission
+    # Some ISPs block torrent indexers at the DNS level. If every source starts
+    # failing at once, uncomment this to resolve through Quad9 instead.
+    # dns:
+    #   - 9.9.9.9
+    #   - 149.112.112.112
+
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    restart: unless-stopped
+    ports:
+      - "${TRANSMISSION_WEB_PORT:-9091}:9091"
+      - "${TRANSMISSION_PEER_PORT:-51413}:51413"
+      - "${TRANSMISSION_PEER_PORT:-51413}:51413/udp"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      USER: ${TRANSMISSION_USERNAME:-}
+      PASS: ${TRANSMISSION_PASSWORD:-}
+      # Transmission answers HTTP 421 to requests whose Host header is not an IP
+      # or localhost. The MCP container reaches it as "transmission:9091", so
+      # that name has to be whitelisted.
+      HOST_WHITELIST: "transmission,localhost,127.0.0.1"
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+      # Transmission's configured download-dir and incomplete-dir have to exist
+      # before free-space can stat them. Naming them as mounts makes Docker
+      # create both on the host at startup.
+      - ./downloads/complete:/downloads/complete
+      - ./downloads/incomplete:/downloads/incomplete
+      - ./watch:/watch
